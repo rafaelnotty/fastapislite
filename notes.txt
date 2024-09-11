@@ -1,0 +1,67 @@
+sudo apt install python3.12-venv
+#listar todas las versiones de python instaladas
+ls /usr/bin/python* 
+python3.12 -m venv venv
+source venv/bin/activate
+#deactivate
+pip install fastapi uvicorn sqlalchemy pydantic
+#pip install fastapi uvicorn sqlalchemy sqlite3 pydantic
+uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+# probar peticion localmente
+curl http://127.0.0.1:8000
+
+#verificaci[on firewall stado y permitir puerto, si no hay fw no pasa nada
+sudo ufw status
+sudo ufw allow 8000
+# verificar que puertos estan escuchando
+sudo iptables -L
+sudo iptables -F #deshabiltar cualquier bloqueo de fw
+
+sudo netstat -tuln | grep 8000
+nc -zv 192.168.101.169 8000 #Telnet, rastreo ip route
+
+##### crear servicio autoboot linux
+sudo nano /etc/systemd/system/fastapi.service
+
+#contenido:
+
+[Unit]
+Description=FastAPI Application
+After=network.target
+
+[Service]
+User=orangepi
+WorkingDirectory=/home/orangepi/fastapislite
+ExecStart=/home/orangepi/.local/bin/uvicorn main:app --host 0.0.0.0 --port 8000 --workers 4
+Environment="PATH=/home/orangepi/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+Restart=always
+
+
+[Install]
+WantedBy=multi-user.target
+#FIN
+
+#verificar la ruta WorkingDirectory
+ls -ld /home/orangepi/fastapislite
+
+# permisos del usuario
+sudo chown -R orangepi:orangepi /home/orangepi/fastapislite
+id orangepi #para ver si el user existe
+
+#recargar y reiniciar el servicio
+sudo systemctl daemon-reload
+sudo systemctl restart fastapi.service
+
+#consultar el status del servicio
+sudo systemctl status fastapi.service
+
+#FIN de procedimiento para establacer service automarico en el boot
+
+#ver donde esta el uvicorn server
+which uvicorn
+
+#correr uvicorn manualmente desde la ruta supuesta>
+/home/orangepi/.local/bin/uvicorn main:app --host 0.0.0.0 --port 8000 --workers 4
+#verificar logs
+sudo journalctl -u fastapi.service --no-pager -e
+
