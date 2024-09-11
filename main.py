@@ -111,12 +111,34 @@ async def get_sensor_data(
     return [SensorData.model_validate(data) for data in sensor_data]
 
 @app.delete("/sensor-data/{sensor_id}")
-async def delete_sensor_data(sensor_id: str, db: Session = Depends(get_db)):
-    deleted = db.query(SensorDataDB).filter(SensorDataDB.sensor_id == sensor_id).delete()
+async def delete_sensor_data(
+    sensor_id: str,
+    start_date: Optional[datetime] = Query(None, description="Start date (YYYY-MM-DD HH:MM:SS)"),
+    end_date: Optional[datetime] = Query(None, description="End date (YYYY-MM-DD HH:MM:SS)"),
+    db: Session = Depends(get_db)
+):
+    # Inicializar la consulta para filtrar por sensor_id
+    query = db.query(SensorDataDB).filter(SensorDataDB.sensor_id == sensor_id)
+    
+    # Aplicar filtro de fecha de inicio, si está presente
+    if start_date:
+        query = query.filter(SensorDataDB.timestamp >= start_date)
+    
+    # Aplicar filtro de fecha de fin, si está presente
+    if end_date:
+        query = query.filter(SensorDataDB.timestamp <= end_date)
+    
+    # Eliminar los registros coincidentes
+    deleted_count = query.delete(synchronize_session=False)
     db.commit()
-    if deleted:
-        return {"status": "success", "deleted_count": deleted}
-    raise HTTPException(status_code=404, detail="Sensor data not found")
+    
+    # Retornar respuesta en función de los registros eliminados
+    if deleted_count:
+        return {"status": "success", "deleted_count": deleted_count}
+    
+    # Si no se encontró ningún registro, lanzar error 404
+    raise HTTPException(status_code=404, detail="No sensor data found for the given criteria")
+
 
 @app.get("/")
 async def read_root():
